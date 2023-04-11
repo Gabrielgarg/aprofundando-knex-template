@@ -31,9 +31,14 @@ app.get("/ping", async (req: Request, res: Response) => {
 
 app.get("/bands", async (req: Request, res: Response) => {
     try {
-        const result = await db.raw(`
-            SELECT * FROM bands;
-        `)
+        // const result = await db.raw(`
+        //     SELECT * FROM bands;
+        // `)
+
+        const result = await db.select("*").from("bands")
+
+        // Abreviado
+        // const result = await db("bands")
 
         res.status(200).send(result)
     } catch (error) {
@@ -71,10 +76,14 @@ app.post("/bands", async (req: Request, res: Response) => {
             throw new Error("'id' e 'name' devem possuir no mínimo 1 caractere")
         }
 
-        await db.raw(`
-            INSERT INTO bands (id, name)
-            VALUES ("${id}", "${name}");
-        `)
+        await db.insert({id, name}).into("bands")
+
+
+
+        // await db.raw(`
+        //     INSERT INTO bands (id, name)
+        //     VALUES ("${id}", "${name}");
+        // `)
 
         res.status(200).send("Banda cadastrada com sucesso")
     } catch (error) {
@@ -125,26 +134,66 @@ app.put("/bands/:id", async (req: Request, res: Response) => {
             }
         }
 
-        const [ band ] = await db.raw(`
-            SELECT * FROM bands
-            WHERE id = "${idToEdit}";
-        `) // desestruturamos para encontrar o primeiro item do array
+        // const [ band ] = await db.raw(`
+        //     SELECT * FROM bands
+        //     WHERE id = "${idToEdit}";
+        // `) // desestruturamos para encontrar o primeiro item do array
+
+        const [band] = await db("bands").where({id: idToEdit})
+        //Colocando o band em [] se for vazio ele retorna como undefined.
 
         if (band) {
-            await db.raw(`
-                UPDATE bands
-                SET
-                    id = "${newId || band.id}",
-                    name = "${newName || band.name}"
-                WHERE
-                    id = "${idToEdit}";
-            `)
+            // await db.raw(`
+            //     UPDATE bands
+            //     SET
+            //         id = "${newId || band.id}",
+            //         name = "${newName || band.name}"
+            //     WHERE
+            //         id = "${idToEdit}";
+            // `)
+
+            const upDateBands ={
+                id: newId || band.id,
+                name: newName || band.name
+            }
+            await db("bands").update(upDateBands).where({id: idToEdit})
+
         } else {
             res.status(404)
             throw new Error("'id' não encontrada")
         }
 
         res.status(200).send({ message: "Atualização realizada com sucesso" })
+    } catch (error) {
+        console.log(error)
+
+        if (req.statusCode === 200) {
+            res.status(500)
+        }
+
+        if (error instanceof Error) {
+            res.send(error.message)
+        } else {
+            res.send("Erro inesperado")
+        }
+    }
+})
+
+app.delete("/bands/:id", async(req: Request, res: Response) =>{
+    try {
+        const idband = req.params.id
+
+        const [band] = await db("bands").where({id: idband})
+
+        if(band){
+            await db("bands").del().where({id: idband})
+            res.status(200).send("Banda apagada com sucesso!")
+        }
+        else{
+            res.status(400)
+            throw new Error("Id não encontrado.")
+        }
+
     } catch (error) {
         console.log(error)
 
